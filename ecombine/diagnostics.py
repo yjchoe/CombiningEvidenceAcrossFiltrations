@@ -3,10 +3,60 @@ diagnostic functions for e-processes (validity & growth)
 """
 
 
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Dict
 import numpy as np
 import pandas as pd
 from tqdm import trange
+
+
+from ecombine.calibrators import adjuster
+
+
+def compute_e_combined(
+        data_generator: Callable[[int], np.ndarray],       # accepts T
+        eprocess_fn0: Callable[[np.ndarray], np.ndarray],  # accepts x
+        eprocess_fn1: Callable[[np.ndarray], np.ndarray],  # accepts x
+        lift: Tuple[bool] = (False, True),
+        adjuster_kwargs: Dict = None,  # dict(use_maximum=True, kappa=None)
+        avg_weight0: float = 0.5,
+        n_repeats: int = 100,
+        T: int = 10000,
+) -> pd.DataFrame:
+    """Compute two e-processes across repeated data samples
+    and combine them by (possibly) e-lifting and averaging.
+
+    Results are stored in a "tall" data frame.
+    """
+    if not adjuster_kwargs:
+        adjuster_kwargs = {}
+
+    all_x, all_e0, all_e1, all_ec = [], [], [], []
+    for _ in trange(n_repeats, desc="compute_e_combined repeated trials"):
+        x = data_generator(T)
+        e0 = eprocess_fn0(x)
+        e1 = eprocess_fn1(x)
+
+        ec0 = adjuster(e0, **adjuster_kwargs) if lift[0] else e0
+        ec1 = adjuster(e1, **adjuster_kwargs) if lift[1] else e1
+        ec = avg_weight0 * ec0 + (1 - avg_weight0) * ec1
+
+        all_x.append(x)
+        all_e0.append(e0)
+        all_e1.append(e1)
+        all_ec.append(ec)
+
+    all_times = np.tile(np.arange(T), n_repeats)  # [0, 1, 2, ..., T, ..., 0, 1, 2, ..., T]
+    all_ids = np.repeat(np.arange(n_repeats), T)  # [0, 0, 0, 1, 1, 1, ..., n, n, n]
+
+    df = pd.DataFrame({
+        "Time": all_times,
+        "id": all_ids,
+        "x": np.concatenate(all_x),
+        "e0": np.concatenate(all_e0),
+        "e1": np.concatenate(all_e1),
+        "ec": np.concatenate(all_ec),
+    }).astype({"Time": int, "id": int})
+    return df
 
 
 def compute_e_and_stopping(

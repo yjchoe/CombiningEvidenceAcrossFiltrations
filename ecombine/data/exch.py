@@ -49,6 +49,29 @@ def generate_binary_changepoint(
     ])
 
 
+def generate_binary_change_twice(
+        p: float,
+        q: float,
+        size: int,
+        rng: np.random.Generator = None,
+):
+    """Generate a Bernoulli sequence with two quick periods of change,
+    that is, Ber(p) [0-0.4] -> Ber(q) [0.4-0.5] -> Ber(p) [0.5-0.9] -> Ber(q) [0.9-1.0]."""
+    if not isinstance(rng, np.random.Generator):
+        rng = np.random.default_rng(rng)
+
+    assert size >= 10
+
+    s1, s2, s3 = [int(frac * size) for frac in [0.4, 0.1, 0.4]]
+    s4 = size - (s1 + s2 + s3)
+    return np.concatenate([
+        rng.binomial(1, p=p, size=s1),
+        rng.binomial(1, p=q, size=s2),
+        rng.binomial(1, p=p, size=s3),
+        rng.binomial(1, p=q, size=s4),
+    ])
+
+
 def generate_binary_markov(
         p_10: float,
         p_11: float,

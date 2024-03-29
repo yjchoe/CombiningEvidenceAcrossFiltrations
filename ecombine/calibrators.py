@@ -1,5 +1,5 @@
 """
-calibrators (and adjusters) of evidence processes that allow "lifting"
+calibrators and adjusters of evidence processes that allow "lifting"
 """
 
 import numpy as np
@@ -36,7 +36,12 @@ def p_to_e_calibrator(p: np.ndarray, kappa: float = None):
         return (1 - p + p * np.log(p)) / (p * np.log(p) ** 2 + 1e-8)
 
 
-def adjuster(e: np.ndarray, use_maximum: bool = True, kappa: float = None):
+def adjuster(
+        e: np.ndarray, 
+        use_maximum: bool = True, 
+        kappa: float = None, 
+        use_kv: bool = False,
+):
     """Adjust the running maximum of an e-process into an e-process.
 
     Equivalent to:
@@ -44,8 +49,13 @@ def adjuster(e: np.ndarray, use_maximum: bool = True, kappa: float = None):
         F(e_t*) = f(min(1, 1/e_t*))
 
     where e* is the running maximum up to t and f is any p-to-e calibrator.
+
+    If use_kv, then use Koolen & Vovk (2014)'s adjuster.
     """
     if use_maximum:
         e = np.maximum.accumulate(e)
+
+    if use_kv:
+        return (e ** 2 * np.log(2)) / ((1 + e) * (np.log(1 + e)) ** 2)
 
     return p_to_e_calibrator(np.minimum(1, np.divide(1, e)), kappa=kappa)

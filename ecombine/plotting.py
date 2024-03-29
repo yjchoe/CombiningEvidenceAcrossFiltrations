@@ -3,8 +3,9 @@ plotting functions
 """
 
 
-from typing import Union, List, Tuple, Dict
 import os.path
+from tqdm import trange
+from typing import Union, List, Tuple, Dict, Callable
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -17,7 +18,7 @@ from ecombine.eprocesses import (
 
 
 # globals
-PLOT_DEFAULT_ARGS = dict(
+PLOT_DEFAULT_KWARGS = dict(
     alpha=0.7,
     linewidth=2,
     height=4,
@@ -39,34 +40,27 @@ def set_theme(style="whitegrid", palette="colorblind", font="Avenir", font_scale
     )
 
 
-def plot_eprocess(
-        e: Union[np.ndarray, List[np.ndarray]],
-        e_label: Union[str, List[str]] = None,
-        time_index: np.ndarray = None,
-        threshold: float = 10,
+def plot_eprocess_from_df(
+        df: pd.DataFrame,
+        threshold: float = 0,
         title: str = "E-process",
+        **plot_kwargs
 ) -> sns.FacetGrid:
-    """Plot e-processes and return the FacetGrid object for further modifications."""
+    """Plot e-processes from a "tall" pandas data frame."""
 
-    # each row is an e-process
-    e = np.array(e)
-    if len(e.shape) == 1:
-        e = e[np.newaxis, :]
-        e_label = [e_label]
-    T = e.shape[1]
-    df = pd.DataFrame({"Time": time_index if time_index else range(1, T + 1)})
-    for e_proc, e_lab in zip(e, e_label):
-        df[e_lab] = e_proc
+    # overwrite default plotting args if necessary
+    kwargs = PLOT_DEFAULT_KWARGS.copy()
+    for k, v in plot_kwargs.items():
+        kwargs[k] = v
 
-    # plot e-processes as lines
-    df = pd.melt(df, id_vars=["Time"], var_name="E-process", value_name="Value")
     fg = sns.relplot(
         x="Time",
         y="Value",
         hue="E-process",
+        style="E-process",
         kind="line",
         data=df,
-        **PLOT_DEFAULT_ARGS
+        **kwargs
     )
     fg.ax.set(
         title=title,
@@ -75,33 +69,76 @@ def plot_eprocess(
     )
     if threshold > 0:
         fg.ax.axhline(
-            y=threshold, color="gray", alpha=PLOT_DEFAULT_ARGS["alpha"],
-            linestyle="dashed", linewidth=PLOT_DEFAULT_ARGS["linewidth"],
+            y=threshold, color="gray", alpha=PLOT_DEFAULT_KWARGS["alpha"],
+            linestyle="dashed", linewidth=PLOT_DEFAULT_KWARGS["linewidth"],
         )
     return fg
 
 
+def plot_eprocess(
+        e: Union[np.ndarray, List[np.ndarray]],
+        e_label: Union[str, List[str]] = None,
+        time_index: np.ndarray = None,
+        threshold: float = 0,
+        title: str = "E-process",
+        **plot_kwargs
+) -> sns.FacetGrid:
+    """Plot e-processes provided as a list of numpy arrays
+    and return the FacetGrid object for further modifications."""
+
+    # each row is an e-process
+    e = np.array(e)
+    if len(e.shape) == 1:
+        e = e[np.newaxis, :]
+        e_label = [e_label]
+    T = e.shape[1]
+
+    # construct a "tall" data frame
+    if time_index is None:
+        time_index = np.arange(1, T + 1)
+    e_dfs = []
+    for e_proc, e_lab in zip(e, e_label):
+        e_dfs.append(pd.DataFrame({
+            "Time": time_index,
+            "E-process": e_lab,
+            "Value": e_proc,
+        }))
+    df = pd.concat(e_dfs)
+    return plot_eprocess_from_df(df, threshold=threshold, title=title, **plot_kwargs)
+
+
 def plot_eprocesses_exch(
-    x: np.ndarray,
-    jumps: Tuple[float] = (0.1, 0.01, 0.001),
-    jumper_weights: Tuple[float] = (1/3, 1/3, 1/3),
-    title: str = "E-processes for testing exchangeability",
-    rng: np.random.Generator = None,  # for conformal
+        x: np.ndarray,
+        jumps: Tuple[float] = (0.1, 0.01, 0.001),
+        jumper_weights: Tuple[float] = (1/3, 1/3, 1/3),
+        title: str = "E-processes for testing exchangeability",
+        n_repeats: int = 1,
+        rng: np.random.Generator = None,  # for conformal
+        **plot_kwargs
 ):
-    """Plot various e-processes for testing exchangeability."""
-    e_ui = eprocess_exch_universal(x)
-    e_confs = [
-        eprocess_exch_conformal(
-            x,
-            jump=jump,
-            jumper_weights=jumper_weights,
-            rng=rng,
-        )
-        for jump in jumps
-    ]
-    eprocesses = [e_ui] + e_confs
-    names = ["UI"] + [f"Conformal-j{jump:g}" for jump in jumps]
-    fg = plot_eprocess(eprocesses, names, title=title)
+    """Plot various e-processes (UI & simple jumper)
+    for testing exchangeability."""
+    eprocesses, names = [], []
+
+    repeat_iter = trange(n_repeats, desc="repeated runs") if n_repeats > 1 else range(n_repeats)
+    for _ in repeat_iter:
+        # UI
+        e_ui = eprocess_exch_universal(x)
+        eprocesses.append(e_ui)
+        names.append("UI")
+        # Conformal variants
+        e_confs = [
+            eprocess_exch_conformal(
+                x,
+                jump=jump,
+                jumper_weights=jumper_weights,
+                rng=rng,
+            )
+            for jump in jumps
+        ]
+        eprocesses.extend(e_confs)
+        names.extend([f"Conformal-j{jump:g}" for jump in jumps])
+    fg = plot_eprocess(eprocesses, names, title=title, **plot_kwargs)
     return fg, eprocesses
 
 
@@ -109,7 +146,8 @@ def plot_stopped_e_values(
         dfs: Dict[str, pd.DataFrame],
         estop_dfs: Dict[str, pd.DataFrame],
         hue_order: List[str],
-        xlim_hist: Tuple = (0, 4),
+        xlim_hist: Tuple = (0, 2.5),
+        ylim_sample: Tuple[float] = (0.005, 15),  # log-scale
         n_samples: int = 100,
         no_title: bool = False,
         plots_dir: str = "./plots",
@@ -123,6 +161,7 @@ def plot_stopped_e_values(
 
     # define a consistent palette across plots
     palette = [PLOT_DEFAULT_COLORS[hue_order.index(method)] for method in dfs]
+    linestyles = ["solid", "dashed", "dotted", "dashdot"]
 
     # 1. Histogram
     combined_edf = pd.concat(
@@ -136,14 +175,15 @@ def plot_stopped_e_values(
         palette=palette,
         binwidth=0.25,
         data=combined_edf,
-        aspect=1.25,
+        height=5,      # 6,
+        aspect=1.6,    # 1.5,
         facet_kws=dict(legend_out=False)
     )
     for i, (method, estop_df) in enumerate(estop_dfs.items()):
         fg_hist.ax.axvline(
             x=estop_df.e_stopped.mean(),
             c=palette[i],
-            linestyle="solid",
+            linestyle=linestyles[i],
             linewidth=3,
         )
     fg_hist.ax.axvline(x=1, c="gray", linestyle="dotted", linewidth=2)
@@ -166,20 +206,24 @@ def plot_stopped_e_values(
     fg_e = sns.relplot(
         x="Time",
         y="e",
-        style="id",
+        units="id",
+        estimator=None,
         hue="E-process",
-        col="E-process",
+        style="E-process",
+        row="E-process",
         kind="line",
-        linewidth=PLOT_DEFAULT_ARGS["linewidth"],
+        linewidth=PLOT_DEFAULT_KWARGS["linewidth"],
         palette=palette,
         alpha=0.5,
-        aspect=1.25,
-        legend=False,
+        height=3,
+        aspect=2,
         data=combined_df.loc[combined_df.id < n_samples].loc[~combined_df.stopped],
+        legend=False,
     )
+    # sns.move_legend(fg_e, loc="upper right", bbox_to_anchor=(1, 1))
     # highlight stopped values
     for i, (method, estop_df) in enumerate(estop_dfs.items()):
-        ax = fg_e.axes[0][i]
+        ax = fg_e.axes[i][0]
         sns.scatterplot(
             x="tau",
             y="e_stopped",
@@ -189,9 +233,13 @@ def plot_stopped_e_values(
             ax=ax,
             legend=False,
         )
-        ax.set_title("" if no_title else f"E-process: {method}")
-        ax.axhline(y=1, color="gray", linestyle="dashed")
-        ax.set(yscale="log", ylabel="E-process (log-scale)")
+        ax.set_title(f"{method} E-process")
+        ax.axhline(y=1, color="gray", linestyle="dotted")
+        ax.set(
+            # ylim=ylim_sample,
+            yscale="log",
+            ylabel=f"E-process",
+        )
     fg_e.savefig(os.path.join(plots_dir, "stopped_e_samples"))
 
     return fg_hist, fg_e
