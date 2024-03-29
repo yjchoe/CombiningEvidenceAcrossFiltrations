@@ -35,18 +35,37 @@ def generate_binary_changepoint(
         p: float,
         q: float,
         size: int,
+        change_loc: float = 0.5,
+        change_len: float = None,
         rng: np.random.Generator = None,
 ):
-    """Generate a Bernoulli sequence with a changepoint in the middle,
-    that is, Ber(p) for [size/2] and Ber(q) for the next [size/2]."""
+    """Generate a Bernoulli sequence with a changepoint in the middle.
+
+    The sequence is Ber(p) for up until time `size*change_loc`, and then 
+    it switches to Ber(q) for `change_len`. 
+    If `change_len` is None, it does not switch back to Ber(p).
+    
+    Both `change_loc` and `change_len` are in [0, 1] representing fractions of `size`.
+    """
     if not isinstance(rng, np.random.Generator):
         rng = np.random.default_rng(rng)
 
-    half = size // 2
-    return np.concatenate([
-        rng.binomial(1, p=p, size=half),
-        rng.binomial(1, p=q, size=size - half),
-    ])
+    change_start = int(size * change_loc)
+    if change_len is not None:
+        change_end = change_start + int(size * change_len)
+    else:
+        change_end = size
+    if change_end >= size:
+        return np.concatenate([
+            rng.binomial(1, p=p, size=change_start),
+            rng.binomial(1, p=q, size=size - change_start),
+        ])
+    else:
+        return np.concatenate([
+            rng.binomial(1, p=p, size=change_start),
+            rng.binomial(1, p=q, size=change_end - change_start),
+            rng.binomial(1, p=p, size=size - change_end),
+        ])
 
 
 def generate_binary_change_twice(
