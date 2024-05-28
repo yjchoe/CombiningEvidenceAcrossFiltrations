@@ -2,7 +2,7 @@
 
 Python code accompanying our paper, [Combining Evidence Across Filtrations Using Adjusters](https://arxiv.org/abs/2402.09698).
 
-![](eLifting.png)
+<img src="eLifting.png" alt="eLifting" width="400"/>
 
 ## Code Overview
 
