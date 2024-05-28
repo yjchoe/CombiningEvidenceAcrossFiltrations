@@ -1,6 +1,8 @@
 # ecombine
 
-Code and Python package accompanying our paper, [Combining Evidence Across Filtrations Using Adjusters](https://arxiv.org/abs/2402.09698).
+Python code accompanying our paper, [Combining Evidence Across Filtrations Using Adjusters](https://arxiv.org/abs/2402.09698).
+
+![](eLifting.png)
 
 ## Code Overview
 

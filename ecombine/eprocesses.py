@@ -1,8 +1,5 @@
 """
-sample e-processes for tester cases, including:
-  - exchangeability
-  - scale-invariant Gaussian
-  - evaluating k-step-ahead forecasts
+e-processes for testing exchangeability
 """
 
 
