@@ -1,3 +1,0 @@
-empirical mean of F-stopped e-values (N=10000, T=100): 0.47617 +/- 0.00297
-mean stopping time: 15.29970
-fraction of unstopped e-values up to 100 steps: 0.00040
