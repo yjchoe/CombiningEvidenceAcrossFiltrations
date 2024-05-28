@@ -146,6 +146,7 @@ def plot_stopped_e_values(
         dfs: Dict[str, pd.DataFrame],
         estop_dfs: Dict[str, pd.DataFrame],
         hue_order: List[str],
+        alpha: float = PLOT_DEFAULT_KWARGS["alpha"],
         xlim_hist: Tuple = (0, 2.5),
         ylim_sample: Tuple[float] = (0.005, 15),  # log-scale
         n_samples: int = 100,
@@ -174,6 +175,7 @@ def plot_stopped_e_values(
         hue="E-process",
         palette=palette,
         binwidth=0.25,
+        alpha=alpha,
         data=combined_edf,
         height=5,      # 6,
         aspect=1.6,    # 1.5,
