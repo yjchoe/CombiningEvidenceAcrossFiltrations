@@ -5,7 +5,10 @@ e-processes for testing exchangeability
 
 from typing import Tuple
 import numpy as np
+import pandas as pd
 from scipy.special import loggamma
+
+from ecombine.calibrators import adjuster
 
 
 MAX_LOG_E = np.log(10) * 200
@@ -129,3 +132,52 @@ def eprocess_exch_conformal(
 def eprocess_exch_pairwise():
     raise NotImplementedError
 
+
+def combined_exch_eprocesses(
+        data,
+        methods=None,    # 'UI', 'Conformal'
+        methods_kwargs=None, 
+        needs_adj=None,  # [False, True]
+        adjuster_kwargs=None,
+        data_col="y",
+        rng=None,
+        return_df=True,
+):
+    """Compute the combined e-processes for exchangeability, given data and methods.
+    
+    The default option computes the universal inference (UI) and conformal e-processes.
+
+    Return a combined data frame with the e-processes and their average.
+    """
+    if methods is None:
+        methods = ["UI", "Conformal"]
+    if methods_kwargs is None:
+        methods_kwargs = {}
+    if needs_adj is None:
+        needs_adj = [False, True]
+    
+    x_df = data[data_col].dropna().astype(int)
+    x_np = x_df.values
+    eprocesses = {}
+    for method, method_kw, need_adj, adj_kw in zip(methods, methods_kwargs, needs_adj, adjuster_kwargs):
+        method_kw = dict() if method_kw is None else method_kw
+        adj_kw = dict() if adj_kw is None else adj_kw
+        if method == "UI":
+            e_fn = eprocess_exch_universal
+        elif method == "Conformal":
+            e_fn = eprocess_exch_conformal
+        else:
+            raise ValueError(f"Unknown method: {method}")
+        try:
+            e = e_fn(x_np, rng=rng, **method_kw)
+        except:
+            e = e_fn(x_np, **method_kw)
+        if need_adj:
+            e = adjuster(e, **adj_kw)
+        eprocesses[method + (" [e-lifted]" if need_adj else "")] = e
+
+    eprocesses["Combined"] = np.mean(list(eprocesses.values()), axis=0)
+    if return_df:
+        eprocesses = pd.DataFrame(eprocesses)
+
+    return eprocesses, x_df

@@ -12,4 +12,5 @@ from ecombine.utils import *
 # data submodules
 from ecombine import data
 import ecombine.data.exch
+import ecombine.data.stock_parity
 

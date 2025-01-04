@@ -79,9 +79,12 @@ def adjuster(
 
     The default adjuster is the mixture adjuster defined in our paper:
 
-        A(e) = (e ** 2 * log(2)) / ((1 + e) * log(1 + e) ** 2).
+        A(e) = (e - 1 - np.log(e)) / (np.log(e) ** 2).
 
-    If `use_kv`, then use Koolen & Vovk (2014)'s adjuster.
+    If `use_kv`, then use Koolen & Vovk (2014)'s adjuster:
+
+        A(e) = e^2 * log(2) / ((1 + e) * log(1 + e) ** 2).
+
     If `use_zero`, then use Shafer et al. (2011)'s alternative ``zero'' adjuster,
         which grows linearly with e and dominates the default version
         but is zero for any value smaller than exp(1 + kappa).

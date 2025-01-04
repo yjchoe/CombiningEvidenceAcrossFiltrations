@@ -67,9 +67,14 @@ def plot_eprocess_from_df(
         ylabel="E-process (log-scale)",
         yscale="log",
     )
+
+    fg.ax.axhline(
+            y=1, color="black", alpha=PLOT_DEFAULT_KWARGS["alpha"] * 0.5,
+            linestyle="dashed", linewidth=PLOT_DEFAULT_KWARGS["linewidth"],
+        )
     if threshold > 0:
         fg.ax.axhline(
-            y=threshold, color="gray", alpha=PLOT_DEFAULT_KWARGS["alpha"],
+            y=threshold, color="gray", alpha=PLOT_DEFAULT_KWARGS["alpha"] * 0.5,
             linestyle="dashed", linewidth=PLOT_DEFAULT_KWARGS["linewidth"],
         )
     return fg
@@ -152,6 +157,10 @@ def plot_stopped_e_values(
         n_samples: int = 100,
         no_title: bool = False,
         plots_dir: str = "./plots",
+        plots_ext: str = ".pdf",
+        xlabel: str = "Time",  # for fig. 2
+        ylabel: str = "E-process",  # for fig. 2
+        vertical: bool = True,
 ) -> Tuple[sns.FacetGrid, sns.FacetGrid]:
     """Plot a histogram of stopped e-values.
 
@@ -198,12 +207,17 @@ def plot_stopped_e_values(
             "Histogram of stopped e-values at " 
             r"$\tau^{\mathbb{F}}$"
         )
-    fg_hist.savefig(os.path.join(plots_dir, "stopped_e_histogram"))
+    fg_hist.savefig(os.path.join(plots_dir, "stopped_e_histogram" + plots_ext), dpi=350)
 
     # 2. Sample e-processes and stopping times
     combined_df = pd.concat(
         [df for df in dfs.values()],
         ignore_index=True,
+    )
+    vertical_args = (
+        {"row": "E-process", "height": 3, "aspect": 2} 
+        if vertical 
+        else {"col": "E-process", "height": 4, "aspect": 1.25}
     )
     fg_e = sns.relplot(
         x="Time",
@@ -212,20 +226,18 @@ def plot_stopped_e_values(
         estimator=None,
         hue="E-process",
         style="E-process",
-        row="E-process",
         kind="line",
         linewidth=PLOT_DEFAULT_KWARGS["linewidth"],
         palette=palette,
         alpha=0.5,
-        height=3,
-        aspect=2,
         data=combined_df.loc[combined_df.id < n_samples].loc[~combined_df.stopped],
         legend=False,
+        **vertical_args,
     )
     # sns.move_legend(fg_e, loc="upper right", bbox_to_anchor=(1, 1))
     # highlight stopped values
     for i, (method, estop_df) in enumerate(estop_dfs.items()):
-        ax = fg_e.axes[i][0]
+        ax = fg_e.axes.flatten()[i]
         sns.scatterplot(
             x="tau",
             y="e_stopped",
@@ -235,13 +247,14 @@ def plot_stopped_e_values(
             ax=ax,
             legend=False,
         )
-        ax.set_title(f"{method} E-process")
+        ax.set_title(f"{method} {ylabel}")
         ax.axhline(y=1, color="gray", linestyle="dotted")
         ax.set(
             # ylim=ylim_sample,
             yscale="log",
-            ylabel=f"E-process",
+            xlabel=xlabel,
+            ylabel=ylabel,
         )
-    fg_e.savefig(os.path.join(plots_dir, "stopped_e_samples"))
+    fg_e.savefig(os.path.join(plots_dir, "stopped_e_samples" + plots_ext), dpi=350)
 
     return fg_hist, fg_e

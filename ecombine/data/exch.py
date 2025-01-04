@@ -91,6 +91,34 @@ def generate_binary_change_twice(
     ])
 
 
+def generate_binary_change_repeated(
+        p: float,
+        q: float,
+        size: int,
+        change_every: int,
+        rng: np.random.Generator = None,
+):
+    """Generate a Bernoulli sequence with repeated periods of change between two means.
+    p -> q -> p -> q -> ..."""
+    if not isinstance(rng, np.random.Generator):
+        rng = np.random.default_rng(rng)
+
+    assert size > change_every
+
+    seq = rng.binomial(1, p=p, size=change_every)
+    n = change_every
+    use_p = False
+    while n < size:
+        seq = np.concatenate([
+            seq,
+            rng.binomial(1, p=(p if use_p else q), size=change_every)
+        ])
+        n += change_every
+        use_p = not use_p
+    
+    return seq[:size]
+
+
 def generate_binary_markov(
         p_10: float,
         p_11: float,
