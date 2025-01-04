@@ -4,8 +4,9 @@ calibrators and adjusters of evidence processes that allow "lifting"
 
 import numpy as np
 
-# small value to avoid division by zero
-EPS = 1e-20
+# extreme values
+EPS = 10 ** -100
+MAX_E = 10 ** 100
 
 
 def e_to_p_calibrator(e: np.ndarray):
@@ -92,14 +93,33 @@ def adjuster(
     if use_maximum:
         e = np.maximum.accumulate(e)
 
+    # Koolen-Vovk (2014) adjuster
     if use_kv:
         return (e ** 2 * np.log(2)) / ((1 + e) * (np.log(1 + e)) ** 2)
 
-    return p_to_e_calibrator(
-        np.minimum(1, np.divide(1, e)), 
-        kappa=kappa, 
-        use_zero=use_zero,
-    )
+    # zero adjuster (Shafer et al., 2011)
+    if use_zero:
+        e_clipped = np.maximum(e, np.exp(1 + kappa))
+        return np.where(
+            e >= np.exp(1 + kappa),
+            (kappa * (1 + kappa) ** kappa) * e_clipped / np.log(e_clipped) ** (1 + kappa),
+            0,
+        )
+
+    # default (mixture over kappas)
+    if kappa is None:
+        log_e = np.log(np.maximum(e, EPS))
+        return np.where(
+            e > 1,
+            (e - 1 - log_e) / np.maximum(log_e ** 2, EPS),
+            0.5,
+        )
+    
+    # specific kappa in (0, 1)
+    else:
+        if kappa <= 0 or kappa >= 1:
+            raise ValueError("invalid value for kappa: must be between 0 and 1")
+        return kappa * e ** (1 - kappa)
 
 
 def spine_adjuster(
