@@ -64,7 +64,7 @@ def plot_eprocess_from_df(
     )
     fg.ax.set(
         title=title,
-        ylabel="E-process (log-scale)",
+        ylabel="E-Process (log-scale)",
         yscale="log",
     )
 
@@ -153,13 +153,13 @@ def plot_stopped_e_values(
         hue_order: List[str],
         alpha: float = PLOT_DEFAULT_KWARGS["alpha"],
         xlim_hist: Tuple = (0, 2.5),
-        ylim_sample: Tuple[float] = (0.005, 15),  # log-scale
+        ylim_sample: Tuple[float] = (0.005, 25),  # log-scale
         n_samples: int = 100,
         no_title: bool = False,
         plots_dir: str = "./plots",
         plots_ext: str = ".pdf",
         xlabel: str = "Time",  # for fig. 2
-        ylabel: str = "E-process",  # for fig. 2
+        ylabel: str = "E-Process (log-scale)",  # for fig. 2
         vertical: bool = True,
 ) -> Tuple[sns.FacetGrid, sns.FacetGrid]:
     """Plot a histogram of stopped e-values.
@@ -207,7 +207,9 @@ def plot_stopped_e_values(
             "Histogram of stopped e-values at " 
             r"$\tau^{\mathbb{F}}$"
         )
-    fg_hist.savefig(os.path.join(plots_dir, "stopped_e_histogram" + plots_ext), dpi=350)
+    fg_hist.tight_layout()
+    fg_hist.savefig(os.path.join(plots_dir, "stopped_e_histogram" + plots_ext), 
+                    dpi=350, bbox_inches="tight")
 
     # 2. Sample e-processes and stopping times
     combined_df = pd.concat(
@@ -217,7 +219,7 @@ def plot_stopped_e_values(
     vertical_args = (
         {"row": "E-process", "height": 3, "aspect": 2} 
         if vertical 
-        else {"col": "E-process", "height": 4, "aspect": 1.25}
+        else {"col": "E-process", "height": 4, "aspect": 1.5}
     )
     fg_e = sns.relplot(
         x="Time",
@@ -247,14 +249,16 @@ def plot_stopped_e_values(
             ax=ax,
             legend=False,
         )
-        ax.set_title(f"{method} {ylabel}")
+        ax.set_title(f"{method}")
         ax.axhline(y=1, color="gray", linestyle="dotted")
         ax.set(
-            # ylim=ylim_sample,
+            ylim=ylim_sample,
             yscale="log",
             xlabel=xlabel,
             ylabel=ylabel,
         )
-    fg_e.savefig(os.path.join(plots_dir, "stopped_e_samples" + plots_ext), dpi=350)
+    fg_e.tight_layout()
+    fg_e.savefig(os.path.join(plots_dir, "stopped_e_samples" + plots_ext), 
+                 dpi=350, bbox_inches="tight")
 
     return fg_hist, fg_e
