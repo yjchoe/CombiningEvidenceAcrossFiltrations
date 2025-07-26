@@ -117,9 +117,9 @@ def eprocess_exch_conformal(
         for eps, w in zip(e_sub, jumper_weights):
             e_sub[eps][0] = w
         for t in range(1, T):
-            for eps in e_sub:
-                # jump
-                e_sub[eps][t] = (1 - jump) * e_sub[eps][t - 1] + (jump / 3) * e[t - 1]
+            for eps, w in zip(e_sub, jumper_weights):
+                # jump / rebalancing
+                e_sub[eps][t] = (1 - jump) * e_sub[eps][t - 1] + jump * (e[t - 1] * w)
                 # bet
                 e_sub[eps][t] *= (1 + eps * (p[t] - 0.5))
             e[t] = e_sub[-1][t] + e_sub[0][t] + e_sub[1][t]
